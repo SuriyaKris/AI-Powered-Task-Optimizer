@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="form-container">
+    <h2>👩‍💼 HR Dashboard - Employee Emotion Monitoring</h2>
+
+    {% if employees %}
+        <div class="dashboard-table">
+            {% for emp_id, logs in employees.items() %}
+                <div class="employee-card">
+                    <h3>{{ emp_id }}
+                        {% if alerts[emp_id] %}
+                            <span class="alert-badge">⚠️ Alert</span>
+                        {% endif %}
+                    </h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Emotion</th>
+                                <th>Task</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in logs %}
+                            <tr>
+                                <td>{{ log.timestamp }}</td>
+                                <td class="{% if log.emotion in ['sad', 'angry'] %}danger{% elif log.emotion == 'happy' %}success{% else %}neutral{% endif %}">
+                                    {{ log.emotion.title() }}
+                                </td>
+                                <td>{{ log.task }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p>No emotion-task logs found.</p>
+    {% endif %}
+</div>
+{% endblock %}

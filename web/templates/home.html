@@ -1,0 +1,151 @@
+<!-- web/templates/home.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="form-container">
+
+    {% if error %}
+        <div class="alert">
+            {{ error }}
+        </div>
+    {% endif %}
+
+    <form method="POST" id="emotionForm">
+        <h2>Enter your Employee ID</h2>
+        <input type="text" name="employee_id" id="employee_id" placeholder="Employee ID" required>
+
+        <h2>Write your feelings</h2>
+        <textarea name="text_input" id="text_input" rows="4" placeholder="How are you feeling today?" required></textarea>
+
+        <h2>Capture Your Facial Expression</h2>
+        <video id="webcam" autoplay playsinline></video><br>
+        <button type="button" class="btn" onclick="captureImage()">📸 Capture Face</button>
+        <canvas id="canvas" style="display: none;"></canvas>
+        
+        <!-- Preview image -->
+        <img id="preview-img" src="" style="display: none; width:224px; height:224px; margin-top: 10px;" alt="Captured Image">
+        <input type="hidden" name="image_data" id="image_data">
+        
+
+        <h2>Record Your Voice</h2>
+        <button type="button" class="btn" onclick="startRecording()">🎙 Start Recording</button>
+        <button type="button" class="btn" onclick="stopRecording()">⏹ Stop Recording</button>
+        <div id="record-status"></div>
+        <audio id="audio-preview" controls style="display:none;"></audio>
+        <input type="hidden" name="audio_data" id="audio_data">
+
+        <button type="submit" class="btn-primary">🚀 Detect Emotion & Recommend Tasks</button>
+    </form>
+
+    {% if emotion %}
+    <div class="results">
+        <h2>🧠 Detected Emotion: <span style="color: #4CAF50;">{{ emotion.title() }}</span></h2>
+
+        <h3>✅ Recommended Tasks:</h3>
+        <div class="task-buttons">
+            {% for task in recommended %}
+                <button class="task-btn" onclick="logTask('{{ employee_id }}', '{{ emotion }}', '{{ task }}')">{{ task }}</button>
+            {% endfor %}
+        </div>
+
+        {% if others %}
+            <h3>📝 Other Available Tasks:</h3>
+            <select id="taskDropdown" onchange="logTask('{{ employee_id }}', '{{ emotion }}', this.value)">
+                <option disabled selected>Choose another task</option>
+                {% for task in others %}
+                    <option value="{{ task }}">{{ task }}</option>
+                {% endfor %}
+            </select>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// Webcam
+const video = document.getElementById('webcam');
+navigator.mediaDevices.getUserMedia({ video: true })
+    .then(stream => { video.srcObject = stream; });
+
+    function captureImage() {
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 224;
+    canvas.height = 224;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    const dataUrl = canvas.toDataURL('image/png');
+    document.getElementById('image_data').value = dataUrl;
+
+    // Show preview
+    const preview = document.getElementById('preview-img');
+    preview.src = dataUrl;
+    preview.style.display = "block";
+
+    alert("📸 Image Captured Successfully!");
+}
+
+
+// Audio Recording
+let mediaRecorder;
+let audioChunks = [];
+
+function startRecording() {
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+        mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+        mediaRecorder.start();
+        document.getElementById('record-status').innerText = "🎙 Recording...";
+        audioChunks = [];
+
+        mediaRecorder.addEventListener("dataavailable", event => {
+            if (event.data.size > 0) {
+                audioChunks.push(event.data);
+            }
+        });
+
+        mediaRecorder.addEventListener("stop", () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                document.getElementById('audio_data').value = reader.result;
+            };
+            reader.readAsDataURL(audioBlob);
+            document.getElementById('audio-preview').src = audioUrl;
+            document.getElementById('audio-preview').style.display = 'block';
+            document.getElementById('record-status').innerText = "✅ Recording Done!";
+        });
+    });
+}
+
+function stopRecording() {
+    if (mediaRecorder) {
+        mediaRecorder.stop();
+    }
+}
+
+// Log Task
+function logTask(employeeId, emotion, task) {
+    fetch('/log_task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            employee_id: employeeId,
+            emotion: emotion,
+            task: task
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert('✅ Task logged successfully!');
+        } else if (data.status === 'alert') {
+            alert(data.message);  // show alert from backend
+        } else {
+            alert('❌ Failed to log task.');
+        }
+    });
+}
+
+</script>
+{% endblock %}
